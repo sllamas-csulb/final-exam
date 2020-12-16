@@ -1,0 +1,221 @@
+<!-- NOTE: this ejs file contains client side javascript -->
+
+<%- include("_header") -%>
+
+<h1>Calculate Sum of Series</h1>
+
+<h4>Select a file with customers for database insert:</h4>
+
+
+    <table>
+        <tr>
+            <td><label for="startingNumber">Enter Starting Number</label>:</td>
+            <td><input type="text" name="startingNumber" id="startingNumber" /></td>
+            <td>(Required)</td>
+        </tr>
+        <tr>
+            <td><label for="endingNumber">Enter Ending Number</label>:</td>
+            <td><input type="text" name="endingNumber" id="endingNumber" /></td>
+            <td>(Required)</td>
+        </tr>
+        <tr>
+            <td><label for="incrementNumber">Enter Increment</label>:</td>
+            <td><input type="text" name="incrementNumber" id="incrementNumber" /></td>
+            <td>(Required)</td>
+        </tr>
+        <tr>
+            <td span="3">
+                <input type="button" value="Calculate Sum" id="calcButton" onclick="runProgram();"/>
+            </td>
+        </tr>
+    </table>
+    <br/>
+<div id="result"></div>
+<br/>
+
+<script>
+    function calcSum( startingNumber, endingNumber, incrementNumber )
+    {
+        var sum = 0;
+        for( i = startingNumber; i <= endingNumber; i += incrementNumber )
+        {
+            sum += i;
+        }
+
+        return sum;
+    }
+
+    function runProgram()
+    {
+
+        const startingNumberElement = document.getElementById('startingNumber');
+        const endingNumberElement = document.getElementById('endingNumber');
+        const incrementNumberElement = document.getElementById('incrementNumber');
+        const resultElement = document.getElementById('result');
+
+        resultElement.innerHTML = "";
+        if( startingNumberElement && endingNumberElement && incrementNumberElement )
+        {
+            if( startingNumberElement.value == "" || isNaN( startingNumberElement.value ) )
+            {
+                resultElement.innerHTML += "<b style=\"color:red\">Starting Number must be numeric</b><br/>";
+            }
+            if( endingNumberElement.value == "" || isNaN( endingNumberElement.value ) )
+            {
+                resultElement.innerHTML += "<b style=\"color:red\">Ending Number must be numeric</b><br/>";
+            }
+            if( incrementNumberElement.value == "" || isNaN( incrementNumberElement.value ) )
+            {
+                resultElement.innerHTML += "<b style=\"color:red\">Increment must be numeric</b><br/>";
+            }
+
+            
+            const startingNumber = parseInt( startingNumberElement.value );
+            const endingNumber = parseInt( endingNumberElement.value );
+            const incrementNumber = parseInt( incrementNumberElement.value );
+            if( resultElement.innerHTML == "" )
+            {
+                if( endingNumber <= startingNumber )
+                {
+                    resultElement.innerHTML += "<b style=\"color:red\">Ending Number must be less than starting number</b><br/>";
+                }
+                else
+                {
+                    const sum = calcSum( startingNumber, endingNumber, incrementNumber );
+                    resultElement.innerHTML += `The sum of the numbers from ${startingNumber} to ${endingNumber} incremented by ${incrementNumber} is <b>${sum}</b><br/>`;
+                }
+
+            }
+        }
+    }
+
+    /*
+    //Define file reader
+    var gFileReader = new FileReader();
+    gFileReader.onload = function(){ loadCustomers( gFileReader.result ); }
+
+    //Initialize request variables
+    var gCustomers = [];
+    var gSendIdx = 0;
+    var gSuccessCount = 0;
+    var gErrorCount = 0;
+
+    //Define customer loader
+    function loadCustomers( result )
+    { 
+        document.getElementById('result') .innerHTML="";
+        gCustomers = [];
+        const lines = result.split(/\r?\n/);
+        for( i = 0 ; i <  lines.length; ++i )
+        {
+            fields = lines[i].split(",");
+            var customer =
+            { 
+                cusId : fields[ 0 ],
+                cusFname : fields[ 1 ],
+                cusLname : fields[ 2 ],
+                cusState : fields[ 3 ],
+                cusSalesYTD : fields[ 4 ],
+                cusSalesPrev : fields[ 5 ]
+            };
+            gCustomers.push( customer );
+        }
+    } 
+
+    //Define progress displayer
+    function displayProgress( resultElement )
+    {
+        resultElement.innerHTML = "<h3>Import Summary</h3>";
+        resultElement.innerHTML += `<b>Records Processed:</b> ${gSendIdx}<br/>`;
+        resultElement.innerHTML += `<b>Records Inserted Successfully:</b> ${gSuccessCount}<br/>`;
+        resultElement.innerHTML += `<b>Records Not Inserted:</b> ${gErrorCount}<br/>`;
+    }
+
+    //Load customers on file select
+    const fileSelector = document.getElementById('filename');
+    fileSelector.addEventListener('change', (event) => {
+        gFileReader.readAsText(event.target.files[0]); 
+    });
+
+    //Load customers on page refresh
+    if( fileSelector.files.length > 0 )
+    {
+        gFileReader.readAsText(fileSelector.files[0]);
+    }
+
+    //Define request handler
+    function sendNextRequest()
+    {
+        if( gSendIdx < gCustomers.length )
+        {
+            var formData = new FormData();
+            formData.append( "cusId", gCustomers[ gSendIdx ].cusId );
+            formData.append( "cusFname", gCustomers[ gSendIdx ].cusFname );
+            formData.append( "cusLname", gCustomers[ gSendIdx ].cusLname );
+            formData.append( "cusState", gCustomers[ gSendIdx ].cusState );
+            formData.append( "cusSalesYTD", gCustomers[ gSendIdx ].cusSalesYTD );
+            formData.append( "cusSalesPrev", gCustomers[ gSendIdx ].cusSalesPrev );
+
+            // Send form data to the server with an asynchronous POST request
+            fetch("/create", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsElement = document.getElementById("errors");
+                if (result.trans === "error")
+                {
+                    errorsElement.innerText += `${result.result}\n`;
+                    ++gErrorCount;
+                }
+                else
+                {
+                    resultElement.innerText = result.result;
+                    ++gSuccessCount;
+                };
+
+                ++gSendIdx;
+                displayProgress( resultElement );
+                sendNextRequest();
+            })
+            .catch(err => {
+                const resultElement = document.getElementById("result");
+                const errorsElement = document.getElementById("errors");
+
+                resultElement.textContent = `Error: ${err.message}`;
+                errorsElement.textContent += `Error: ${err.message}`;
+
+                ++gErrorCount;
+                ++gSendIdx;
+
+                displayProgress( resultElement );
+                sendNextRequest();
+            });    
+        }
+    }
+    
+    document.querySelector("form").addEventListener("submit", e => {
+      e.preventDefault();
+
+      if( gCustomers.length <= 0 )
+      {
+        alert("Please Select a File!");
+      }
+      else
+      {
+        //Initialize progress and start sending requests
+        document.getElementById('result') .innerHTML="<h3>Waiting for Results...</h3>";
+        document.getElementById('errors') .innerText="Errors:\n";
+        gSendIdx = 0;
+        gSuccessCount = 0;
+        gErrorCount = 0;
+        sendNextRequest();
+      }
+    });
+    */
+    </script>
+
+<%- include("_footer") -%></input>

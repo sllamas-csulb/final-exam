@@ -1,0 +1,12 @@
+Submit the following:
+
+1. GitHub URL:
+
+
+2. Heroku URL:
+
+
+3. Zip your solution directory and submit via BeachBoard
+Name the file as follows:  yourFirstInitialLastNameFinal.zip (e.g.: aasherFinal.zip)
+Include the .env file (so I can connect to your database)
+Exclude the node_modules directory.

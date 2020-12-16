@@ -1,0 +1,272 @@
+<!-- NOTE: this ejs file contains client side javascript -->
+
+<%- include("_header") -%>
+
+<h1>Books Import</h1>
+
+<h4>Total number of books in the database: <%= totRecs %></h4>
+
+<h4>Select a file with books for database insert:</h4>
+
+<form>
+    <input type="file" name="filename" id="filename" required><p></p>
+    <input type="submit"  value="Import Books">
+</form>
+<p id="result"></p>
+<p id="errorSummary"></p>
+<p id="errors"></p>
+
+<script>
+    //Define file reader
+    var gFileReader = new FileReader();
+    gFileReader.onload = function(){ loadBooks( gFileReader.result ); }
+
+    //Initialize request variables
+    var gBooks = [];
+    var gSendIdx = 0;
+    var gSuccessCount = 0;
+    var gErrorCount = 0;
+    var gStartingBookCount = "";
+    var gEndingBookCount = "";
+
+    //Define customer loader
+    function loadBooks( result )
+    { 
+        document.getElementById('result') .innerHTML="";
+        gBooks = [];
+        const lines = result.split(/\r?\n/);
+        for( i = 0 ; i <  lines.length; ++i )
+        {
+            fields = lines[i].split(",");
+            var book =
+            { 
+                book_id : fields[ 0 ],
+                title : fields[ 1 ],
+                total_pages : fields[ 2 ],
+                rating : fields[ 3 ],
+                isbn : fields[ 4 ],
+                published_date : fields[ 5 ]
+            };
+
+            if( book.book_id == "Null" )
+            {
+                book.book_id = "undefined";
+            }
+            if( book.title == "Null" )
+            {
+                book.title = "undefined";
+            }
+            if( book.total_pages == "Null" )
+            {
+                book.total_pages = "undefined";
+            }
+            if( book.rating == "Null" )
+            {
+                book.rating = "undefined";
+            }
+            if( book.isbn == "Null" )
+            {
+                book.isbn = "undefined";
+            }
+            if( book.published_date == "Null" )
+            {
+                book.published_date = "undefined";
+            }
+
+            gBooks.push( book );
+        }
+    } 
+
+    //Define progress displayer
+    function displayProgress( resultElement )
+    {
+        resultElement.innerHTML = "<h3>Import Summary</h3>";
+        resultElement.innerHTML += `Initial number of books in the database: ${gStartingBookCount}<br/>`;
+        resultElement.innerHTML += `Records Inserted Successfully: ${gSuccessCount}<br/>`;
+        resultElement.innerHTML += `Resulting number of books in the database: <b>${gEndingBookCount}</b><br/>`;
+    }
+    function displayErrors( errorSummaryElement )
+    {
+        if( gErrorCount <= 0 )
+        {
+            errorSummaryElement.innerHTML = "";
+        }
+        else
+        {
+            errorSummaryElement.innerHTML = "<h3>Error Summary</h3>";
+            errorSummaryElement.innerHTML += `Total number of books processed: ${gSendIdx}<br/>`;
+            errorSummaryElement.innerHTML += `Number of books not inserted: <b>${gErrorCount}</b><br/>`;
+        }
+    }
+
+    //Load Books on file select
+    const fileSelector = document.getElementById('filename');
+    fileSelector.addEventListener('change', (event) => {
+        gFileReader.readAsText(event.target.files[0]); 
+    });
+
+    //Load Books on page refresh
+    if( fileSelector.files.length > 0 )
+    {
+        gFileReader.readAsText(fileSelector.files[0]);
+    }
+
+    //Define request handler
+    function sendNextRequest()
+    {
+        if( gStartingBookCount == "" )
+        {
+            // Send form data to the server with an asynchronous POST request
+            fetch("/bookcount", {
+                method: "POST"
+            })
+            .then(response => response.json())
+            .then(result => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+                if (result.msg.includes( "Error" ) )
+                {
+                    errorsElement.innerText += `Unable to get initial book count: ${result.result}\n`;
+                    gStartingBookCount = "Error";
+                }
+                else
+                {
+                    resultElement.innerText = result.result;
+                    gStartingBookCount = result.totRecords;
+                };
+
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            })
+            .catch(err => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+                errorsElement.innerText += `Unable to get initial book count!\n`;
+                gStartingBookCount = "Error";
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            });    
+        }
+        else if( gSendIdx < gBooks.length )
+        {
+            var formData = new FormData();
+            formData.append( "book_id", gBooks[ gSendIdx ].book_id );
+            formData.append( "title", gBooks[ gSendIdx ].title );
+            formData.append( "total_pages", gBooks[ gSendIdx ].total_pages );
+            formData.append( "rating", gBooks[ gSendIdx ].rating );
+            formData.append( "isbn", gBooks[ gSendIdx ].isbn );
+            formData.append( "published_date", gBooks[ gSendIdx ].published_date );
+
+            // Send form data to the server with an asynchronous POST request
+            fetch("/create", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+                if (result.trans === "error")
+                {
+                    errorsElement.innerText += `${result.result}\n`;
+                    ++gErrorCount;
+                }
+                else
+                {
+                    resultElement.innerText = result.result;
+                    ++gSuccessCount;
+                };
+
+                ++gSendIdx;
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            })
+            .catch(err => {
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+
+                resultElement.textContent = `Error: ${err.message}`;
+                errorsElement.textContent += `Error: ${err.message}`;
+
+                ++gErrorCount;
+                ++gSendIdx;
+
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            });    
+        }
+        else if( gEndingBookCount == "" )
+        {
+            // Send form data to the server with an asynchronous POST request
+            fetch("/bookcount", {
+                method: "POST"
+            })
+            .then(response => response.json())
+            .then(result => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+                if (result.msg.includes( "Error" ) )
+                {
+                    errorsElement.innerText += `Unable to get ending book count: ${result.result}\n`;
+                    gEndingBookCount = "Error";
+                }
+                else
+                {
+                    resultElement.innerText = result.result;
+                    gEndingBookCount = result.totRecords;
+                };
+
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            })
+            .catch(err => {
+                //Process record and send next request
+                const resultElement = document.getElementById("result");
+                const errorsSummaryElement = document.getElementById("errorSummary");
+                const errorsElement = document.getElementById("errors");
+                errorsElement.innerText += `Unable to get ending book count!\n`;
+                gEndingBookCount = "Error";
+                displayProgress( resultElement );
+                displayErrors( errorsSummaryElement );
+                sendNextRequest();
+            });    
+        }
+    }
+    
+    document.querySelector("form").addEventListener("submit", e => {
+      e.preventDefault();
+
+      if( gBooks.length <= 0 )
+      {
+        alert("Please Select a File!");
+      }
+      else
+      {
+        //Initialize progress and start sending requests
+        document.getElementById('result') .innerHTML="<h3>Waiting for Results...</h3>";
+        document.getElementById('errors') .innerText="Detailed:\n";
+        gSendIdx = 0;
+        gSuccessCount = 0;
+        gErrorCount = 0;
+        gStartingBookCount = "";
+        gEndingBookCount = "";
+        sendNextRequest();
+      }
+    });
+    </script>
+
+<%- include("_footer") -%></input>
