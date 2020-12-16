@@ -1,17 +1,10 @@
 // Add database package and connection string (can remove ssl)
 const { Pool } = require('pg');
 const pool = new Pool({
-    /*
     connectionString: process.env.DATABASE_URL,
     ssl: {
       rejectUnauthorized: false
     }
-    */
-    user: process.env.PSQL_USER,
-    host: process.env.PSQL_HOST,
-    database: process.env.PSQL_DATABASE,
-    password: process.env.PSQL_PASSWORD, 
-    port: process.env.PSQL_PORT
 });
 
 console.log("Successful connection to the database");
